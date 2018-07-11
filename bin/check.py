@@ -322,6 +322,11 @@ def handle_image(
                 if rmvmatch.group(1) == '0' and int(rmvmatch.group(2)) < 13:
                     warnings.extend(['**REACTIVE-MONGO is too old** ({!s})'.format(
                         re.sub(r'^.*/', '', reactivemongo))])
+                    delete = True
+                    deletereason = 'ReactiveMongo {}{}'.format(
+                        '{0[0]}.{0[1]}.{0[2]}'.format(rmvmatch.group(1, 2, 3)),
+                        '' if deletereason == '' else ' | {}'.format(deletereason))
+                    logger.debug(' = Delete Reason: {}'.format(deletereason))
         except (docker.errors.ContainerError, docker.errors.APIError) as e:
             logger.debug(' = ReactiveMongo: {}'.format(pf(e)))
 
@@ -501,7 +506,17 @@ def handle_image(
     if (delete and not dryrun):
         try:
             logger.debug(' = ECR Delete: {}'.format(image.id))
-            ecrc.batch_delete_image(
+            del_tag = ecrc.batch_delete_image(
+                registryId=regid,
+                repositoryName=repo,
+                imageIds=[
+                    {
+                        'imageTag': tag,
+                    },
+                ]
+            )
+            logger.debug(' = ECR DeleteTag: {}'.format(pf(del_tag)))
+            del_id = ecrc.batch_delete_image(
                 registryId=regid,
                 repositoryName=repo,
                 imageIds=[
@@ -510,6 +525,7 @@ def handle_image(
                     },
                 ]
             )
+            logger.debug(' = ECR DeleteId: {}'.format(pf(del_id)))
         except Exception as e:
             logger.error(' = ECR Delete Error: {}'.format(e))
 
