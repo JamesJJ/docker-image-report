@@ -243,7 +243,9 @@ def handle_image(
     if labels.get('owner_team', '') == '':
         warnings.append('**LABEL `owner_team` NOT FOUND**')
         delete = True
-        deletereason = 'Missing label `owner_team`'
+        deletereason = 'Missing label `owner_team`{}'.format(
+            '' if deletereason == '' else ' | {}'.format(deletereason))
+        logger.debug(' = Delete Reason: {}'.format(deletereason))
 
     hasjava = False
     try:
@@ -367,10 +369,46 @@ def handle_image(
                 re.search(r'^ALPINE:3\.[0-5]\.', linuxversion[0])):
             warnings.extend(['**Linux distribution is old** ({!s})'.format(linuxversion[0])])
             warnings.extend(
-                ['*2018/06 suggest using: `openjdk:8-jre-slim-stretch` / `node:10-stretch` / `debian:stretch-slim` / `alpine:3.7`*'])
+                ['*2018/07 suggest using: `openjdk:8-jre-slim-stretch` / `node:10-stretch` / `debian:stretch-slim` / `alpine:3.8`*'])
     except (docker.errors.ContainerError, docker.errors.APIError) as e:
         logger.warn(' = Linux: {}'.format(pf(e)))
         linuxversion = []
+
+
+    try:
+        alpineversions = r'''
+           apk --no-cache version
+           '''.strip().replace('\n', ' ')
+        apkversion = dc.containers.run(image.id,
+                                         network_disabled=False,   # THIS NEEDS NETWORK
+                                         ipc_mode='none',
+                                         remove=True,
+                                         cpu_shares=768,
+                                         detach=False,
+                                         stdout=True,
+                                         stderr=False,
+                                         log_config={"type": "json-file"},
+                                         entrypoint='sh',
+                                         command='-c \'{}\''.format(alpineversions)
+                                         ).strip().decode("utf-8").split("\n")
+        logger.debug(' = APK: {}'.format(pf(apkversion)))
+    except (docker.errors.ContainerError, docker.errors.APIError) as e:
+        logger.warn(' = APK: {}'.format(pf(e)))
+        apkversion = []
+
+    apkvloop_msg_done = False
+    for apkv in apkversion:
+      if re.search(r'^openjdk8\-j.+< 8\.171\.', apkv):
+        logger.debug(' = APK: Qualified for delete: {}'.format(pf(apkv)))
+        delete = True
+        if apkvloop_msg_done is False:
+            javaversion.extend(['**OPENJDK APK package is very out of date:** {!s}'.format(apkv.strip())])
+            apkvloop_msg_done = True
+            warnings.append('**Alpine packages not updated**')
+            deletereason = 'Build process issues: Up to date base image not pulled. Critical OS packages not updated{}'.format(
+                '' if deletereason == '' else ' | {}'.format(deletereason))
+            logger.debug(' = Delete Reason: {}'.format(deletereason))
+
 
     history = []
     for layer in image.history():
