@@ -371,10 +371,16 @@ def handle_image(
         logger.debug(' = Linux: {}'.format(pf(linuxversion)))
         if (re.search(r'^DEBIAN:[0-8]\.', linuxversion[0]) or
             re.search(r'^ALPINE:[0-2]\.', linuxversion[0]) or
-                re.search(r'^ALPINE:3\.[0-5]\.', linuxversion[0])):
+                re.search(r'^ALPINE:3\.[0-6]\.', linuxversion[0])):
             warnings.extend(['**Linux distribution is old** ({!s})'.format(linuxversion[0])])
             warnings.extend(
                 ['*2018/07 suggest using: `openjdk:8-jre-slim-stretch` / `node:10-stretch` / `debian:stretch-slim` / `alpine:3.8`*'])
+        if (re.search(r'^ALPINE:[0-2]\.', linuxversion[0]) or
+                re.search(r'^ALPINE:3\.[0-4]\.', linuxversion[0])):
+                    delete = True
+                    deletereason = 'Alpine Linux too old {}{}'.format(linuxversion[0],
+                        '' if deletereason == '' else ' | {}'.format(deletereason))
+                    logger.debug(' = Delete Reason: {}'.format(deletereason))
     except (docker.errors.ContainerError, docker.errors.APIError) as e:
         logger.warn(' = Linux: {}'.format(pf(e)))
         linuxversion = []
