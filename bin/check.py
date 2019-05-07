@@ -19,6 +19,7 @@ import string
 import datetime
 import random
 import markdown
+import subprocess
 from string import Template
 from pprint import pformat as pf
 
@@ -247,6 +248,15 @@ def handle_image(
             '' if deletereason == '' else ' | {}'.format(deletereason))
         logger.debug(' = Delete Reason: {}'.format(deletereason))
 
+    if labels.get('owner_team', '') == 'Ark':
+        warnings.append('**Must update LABEL `owner_team`*')
+        delete = True
+        deletereason = 'Invalid `owner_team` value `{}`{}'.format(
+            labels.get('owner_team', ''),
+            '' if deletereason == '' else ' | {}'.format(deletereason))
+        logger.debug(' = Delete Reason: {}'.format(deletereason))
+
+
     hasjava = False
     try:
         javaversion = dc.containers.run(image.id,
@@ -344,12 +354,13 @@ def handle_image(
                                         command='--version'
                                         ).strip().decode("utf-8").split("\n")[0:1]
         logger.debug(' = Node: {}'.format(pf(nodeversion)))
-        if re.search(r'^v?[0-79]\.', nodeversion[0]):
-            warnings.extend(['**NODE is too old / EOL** ({!s})'.format(nodeversion[0])])
+        if re.search(r'^v?([0-9]\.|11\.)', nodeversion[0]):
+            warnings.extend(['**NODE is too old / EOL / Unstable** ({!s})'.format(nodeversion[0])])
     except (docker.errors.ContainerError, docker.errors.APIError) as e:
         logger.debug(' = Node: {}'.format(pf(e)))
         nodeversion = []
 
+    linuxversion = ""
     try:
         linuxversioncommand = r'''
            if [ -f /etc/alpine-release ]; then echo "ALPINE:$(cat /etc/alpine-release)";
@@ -370,13 +381,14 @@ def handle_image(
                                          ).strip().decode("utf-8").split("\n")[0:1]
         logger.debug(' = Linux: {}'.format(pf(linuxversion)))
         if (re.search(r'^DEBIAN:[0-8]\.', linuxversion[0]) or
+            re.search(r'^DEBIAN:9\.[0-7]$', linuxversion[0]) or
             re.search(r'^ALPINE:[0-2]\.', linuxversion[0]) or
-                re.search(r'^ALPINE:3\.[0-6]\.', linuxversion[0])):
+                re.search(r'^ALPINE:3\.[7-8]\.', linuxversion[0])):
             warnings.extend(['**Linux distribution is old** ({!s})'.format(linuxversion[0])])
             warnings.extend(
-                ['*2018/07 suggest using: `openjdk:8-jre-slim-stretch` / `node:10-stretch` / `debian:stretch-slim` / `alpine:3.8`*'])
+                ['*2019/05 suggest using: `openjdk:8-jre-slim-stretch` / `node:10-stretch` / `debian:stretch-slim`*'])
         if (re.search(r'^ALPINE:[0-2]\.', linuxversion[0]) or
-                re.search(r'^ALPINE:3\.[0-4]\.', linuxversion[0])):
+                re.search(r'^ALPINE:3\.[0-6]\.', linuxversion[0])):
                     delete = True
                     deletereason = 'Alpine Linux too old {}{}'.format(linuxversion[0],
                         '' if deletereason == '' else ' | {}'.format(deletereason))
@@ -386,39 +398,68 @@ def handle_image(
         linuxversion = []
 
 
-    try:
-        alpineversions = r'''
-           apk --no-cache version
-           '''.strip().replace('\n', ' ')
-        apkversion = dc.containers.run(image.id,
-                                         network_disabled=False,   # THIS NEEDS NETWORK
-                                         ipc_mode='none',
-                                         remove=True,
-                                         cpu_shares=768,
-                                         detach=False,
-                                         stdout=True,
-                                         stderr=False,
-                                         log_config={"type": "json-file"},
-                                         entrypoint='sh',
-                                         command='-c \'{}\''.format(alpineversions)
-                                         ).strip().decode("utf-8").split("\n")
-        logger.debug(' = APK: {}'.format(pf(apkversion)))
-    except (docker.errors.ContainerError, docker.errors.APIError) as e:
-        logger.warn(' = APK: {}'.format(pf(e)))
-        apkversion = []
+    if re.search(r'^ALPINE:', linuxversion[0]):
+        try:
+            alpineversions = r'''
+               apk --no-cache version
+               '''.strip().replace('\n', ' ')
+            apkversion = dc.containers.run(image.id,
+                                             network_disabled=False,   # THIS NEEDS NETWORK
+                                             ipc_mode='none',
+                                             remove=True,
+                                             cpu_shares=768,
+                                             detach=False,
+                                             stdout=True,
+                                             stderr=False,
+                                             log_config={"type": "json-file"},
+                                             entrypoint='sh',
+                                             command='-c \'{}\''.format(alpineversions)
+                                             ).strip().decode("utf-8").split("\n")
+            logger.debug(' = APK: {}'.format(pf(apkversion)))
+        except (docker.errors.ContainerError, docker.errors.APIError) as e:
+            logger.warn(' = APK: {}'.format(pf(e)))
+            apkversion = []
 
-    apkvloop_msg_done = False
-    for apkv in apkversion:
-      if re.search(r'^openjdk8\-j.+< 8\.171\.', apkv):
-        logger.debug(' = APK: Qualified for delete: {}'.format(pf(apkv)))
-        delete = True
-        if apkvloop_msg_done is False:
-            javaversion.extend(['**OPENJDK APK package is very out of date:** {!s}'.format(apkv.strip())])
-            apkvloop_msg_done = True
-            warnings.append('**Alpine packages not updated**')
-            deletereason = 'Build process issues: Up to date base image not pulled. Critical OS packages not updated{}'.format(
-                '' if deletereason == '' else ' | {}'.format(deletereason))
-            logger.debug(' = Delete Reason: {}'.format(deletereason))
+        apkvloop_msg_done = False
+        for apkv in apkversion:
+          if re.search(r'^openjdk8\-j.+< 8\.171\.', apkv):
+            logger.debug(' = APK: Qualified for delete: {}'.format(pf(apkv)))
+            delete = True
+            if apkvloop_msg_done is False:
+                javaversion.extend(['**OPENJDK APK package is very out of date:** {!s}'.format(apkv.strip())])
+                apkvloop_msg_done = True
+                warnings.append('**Alpine packages not updated**')
+                deletereason = 'Build process issues: Up to date base image not pulled. Critical OS packages not updated{}'.format(
+                    '' if deletereason == '' else ' | {}'.format(deletereason))
+                logger.debug(' = Delete Reason: {}'.format(deletereason))
+
+    logger.debug(' = dive starting on: {}:{}'.format(imageaddress, tag))
+    effeciency = 100
+    dive_json = {}
+    try:
+        dive = subprocess.run([ "/usr/local/bin/dive", '{}:{}'.format(imageaddress, tag), "-j", "/tmp/dive-{}".format(image.id[7:]) ])
+        if (dive.returncode != 0):
+            logger.warn(' = dive exited with status: {}'.format(dive.returncode))
+        else:
+            with open("/tmp/dive-{}".format(image.id[7:]), 'r', encoding="utf-8") as djf:
+                dive_json = json.load(djf).get('image',{})
+                dive_json.pop('inefficientFiles', None)
+                effeciency = int(100.0 * dive_json.get('efficiencyScore', 1.0))
+            os.remove("/tmp/dive-{}".format(image.id[7:]))
+    except (FileNotFoundError, OSError, ValueError) as e:
+        logger.error(e, exc_info=True)
+    # {'inefficientBytes': 4567100, 'efficiencyScore': 0.9878841626068852, 'sizeBytes': 243224707}
+    if (dive_json.get('sizeBytes', 0) < 80 * 1024 * 1024):
+        logger.debug(' = Image is small, skipping effeciency check: {} ({} %)'.format(dive_json.get('sizeBytes', 'unknown'), effeciency))
+    else:
+        logger.debug(' = Image effeciency: {}'.format(effeciency))
+        if (effeciency < 85):
+            warnings.append('**Image build is very ineffecient: {} %**'.format(effeciency))
+        elif (effeciency < 90):
+            warnings.append('**Image build is ineffecient: {} %**'.format(effeciency))
+
+            
+        
 
 
     history = []
@@ -462,6 +503,7 @@ def handle_image(
         java='{none}' if javaversion == [] else to_md_bullets(javaversion),
         node='{none}' if nodeversion == [] else to_md_bullets(nodeversion),
         os='{unknown}' if linuxversion == [] else to_md_bullets(linuxversion),
+        effeciency=to_md_bullets(['{} % (How much disk space is wasted in the image. 100% is best. 0% is worst)'.format(effeciency)]),
         history="\n\n".join(history),
         action='ACCEPT' if delete is False else to_md_bullets(['{}DELETED ({!s})'.format('*[DRYRUN] Would have been:* ' if dryrun else '', deletereason)]),
         warnings='{none}' if warnings == [] else to_md_bullets(warnings),
