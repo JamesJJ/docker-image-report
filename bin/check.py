@@ -434,7 +434,7 @@ def handle_image(
                 logger.debug(' = Delete Reason: {}'.format(deletereason))
 
     logger.debug(' = dive starting on: {}:{}'.format(imageaddress, tag))
-    effeciency = 100
+    efficiency = 100
     dive_json = {}
     try:
         dive = subprocess.run([ "/usr/local/bin/dive", '{}:{}'.format(imageaddress, tag), "-j", "/tmp/dive-{}".format(image.id[7:]) ])
@@ -444,19 +444,19 @@ def handle_image(
             with open("/tmp/dive-{}".format(image.id[7:]), 'r', encoding="utf-8") as djf:
                 dive_json = json.load(djf).get('image',{})
                 dive_json.pop('inefficientFiles', None)
-                effeciency = int(100.0 * dive_json.get('efficiencyScore', 1.0))
+                efficiency = int(100.0 * dive_json.get('efficiencyScore', 1.0))
             os.remove("/tmp/dive-{}".format(image.id[7:]))
     except (FileNotFoundError, OSError, ValueError) as e:
         logger.error(e, exc_info=True)
     # {'inefficientBytes': 4567100, 'efficiencyScore': 0.9878841626068852, 'sizeBytes': 243224707}
     if (dive_json.get('sizeBytes', 0) < 80 * 1024 * 1024):
-        logger.debug(' = Image is small, skipping effeciency check: {} ({} %)'.format(dive_json.get('sizeBytes', 'unknown'), effeciency))
+        logger.debug(' = Image is small, skipping efficiency check: {} ({} %)'.format(dive_json.get('sizeBytes', 'unknown'), efficiency))
     else:
-        logger.debug(' = Image effeciency: {}'.format(effeciency))
-        if (effeciency < 85):
-            warnings.append('**Image build is very ineffecient: {} %**'.format(effeciency))
-        elif (effeciency < 90):
-            warnings.append('**Image build is ineffecient: {} %**'.format(effeciency))
+        logger.debug(' = Image efficiency: {}'.format(efficiency))
+        if (efficiency < 85):
+            warnings.append('**Image build is very inefficient: {} %**'.format(efficiency))
+        elif (efficiency < 90):
+            warnings.append('**Image build is inefficient: {} %**'.format(efficiency))
 
             
         
@@ -503,7 +503,7 @@ def handle_image(
         java='{none}' if javaversion == [] else to_md_bullets(javaversion),
         node='{none}' if nodeversion == [] else to_md_bullets(nodeversion),
         os='{unknown}' if linuxversion == [] else to_md_bullets(linuxversion),
-        effeciency=to_md_bullets(['{} % (How much disk space is wasted in the image. 100% is best. 0% is worst)'.format(effeciency)]),
+        efficiency=to_md_bullets(['{} % (How much disk space is wasted in the image. 100% is best. 0% is worst)'.format(efficiency)]),
         history="\n\n".join(history),
         action='ACCEPT' if delete is False else to_md_bullets(['{}DELETED ({!s})'.format('*[DRYRUN] Would have been:* ' if dryrun else '', deletereason)]),
         warnings='{none}' if warnings == [] else to_md_bullets(warnings),
