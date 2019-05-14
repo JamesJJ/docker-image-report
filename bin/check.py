@@ -291,17 +291,17 @@ def handle_image(
                                                   stderr=True,
                                                   log_config={"type": "json-file"},
                                                   entrypoint='java',
-                                                  command='-XX:+UnlockExperimentalVMOptions -XX:+UseCGroupMemoryLimitForHeap -version'
+                                                  command='-XX:MaxRAMPercentage=75.0  -XX:MinRAMPercentage=30.0 -XX:InitialRAMPercentage=50.0 -version'
                                                   ).strip().decode('utf-8').split("\n")[0:3]
-            logger.debug(' = Java cGroup Heap: {}'.format(javacgroupheapout))
+            logger.debug(' = Java RAM Percentage Heap: {}'.format(javacgroupheapout))
             javacgroupheap = True
         except (docker.errors.ContainerError, docker.errors.APIError) as e:
-            logger.debug(' = Java cGroup Heap: {}'.format(pf(e)))
+            logger.debug(' = Java RAM Percentage Heap: {}'.format(pf(e)))
         javaversion.extend(
-            ['Supports `-XX:+UseCGroupMemoryLimitForHeap`: {!s}'.format(javacgroupheap)])
+            ['Supports `-XX:MaxRAMPercentage/MinRAMPercentage`: {!s}'.format(javacgroupheap)])
         if javacgroupheap is False:
             warnings.extend(
-                ['**JAVA is too old** ({!s}). Please update to support `-XX:+UseCGroupMemoryLimitForHeap`'.format(javaversion[0])])
+                ['**JAVA is too old: {!s} (not support `-XX:MaxRAMPercentage/MinRAMPercentage`)**'.format(javaversion[0])])
 
     if hasjava:
         reactivemongo = None
