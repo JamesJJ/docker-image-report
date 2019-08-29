@@ -4,7 +4,7 @@
 
 Using [AWS Elastic Container Registry](https://aws.amazon.com/ecr/) as a [Docker](https://www.docker.com/) image registry, image push events logged by [Cloudwatch](https://aws.amazon.com/cloudwatch/) are sent to a [SQS queue](https://aws.amazon.com/sqs/).
 
-The Python script here reads events from SQS, pulls the image from the docker registry, and executes some simple checks. Markdown and HTML reports are produced and uploaded to [S3](https://aws.amazon.com/s3/). Status notifications including a [presigned web link](https://docs.aws.amazon.com/AmazonS3/latest/dev/ShareObjectPreSignedURL.html) to view the HTML report are sent to [Microsoft Teams](https://products.office.com/en-us/microsoft-teams/group-chat-software).
+The Python script here reads events from SQS, pulls the image from the docker registry, and executes some simple checks. HTML reports are produced and uploaded to [S3](https://aws.amazon.com/s3/). Status notifications including a [presigned web link](https://docs.aws.amazon.com/AmazonS3/latest/dev/ShareObjectPreSignedURL.html) to view the HTML report are sent to [Microsoft Teams](https://products.office.com/en-us/microsoft-teams/group-chat-software).
 
 ## Current checks include:
 
