@@ -12,6 +12,7 @@ ARG APP_CONFIG_VERSION
 ENV APP_CONFIG_VERSION ${APP_CONFIG_VERSION:-unknown}
 ENV DEBIAN_FRONTEND noninteractive
 ARG TINI_VERSION="v0.18.0"
+ARG DOCKER_STATIC_TGZ="https://download.docker.com/linux/static/stable/x86_64/docker-19.03.1.tgz"
 
 #  -------- Begin: Include updates -------
 RUN if test -f /etc/debian_version; then apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/* ;fi
@@ -26,11 +27,13 @@ RUN \
         ca-certificates \
         curl \
         bash \
+        bsdtar \
         gzip \
         psmisc \
         jq \
         python3 \
         python3-pip \
+        python3-setuptools \
         openssl \
     && apt-get autoremove -y --purge \
     && apt-get -y clean
@@ -39,6 +42,11 @@ RUN \
 RUN \
 curl -sSfL -o /usr/local/bin/tini https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-static && \
 chmod 755 /usr/local/bin/tini
+
+RUN \
+  curl -sSfL "${DOCKER_STATIC_TGZ}" \
+  | bsdtar -xzv -C /usr/local/bin --strip-components 1 -f -  docker/docker \
+  && chmod 755 /usr/local/bin/docker
 
 #ENV DOCKERIZE_VERSION v0.6.0
 #RUN curl -sSfLO "https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz" \
@@ -52,16 +60,11 @@ RUN \
   && tar -C /usr/local/bin -xzvf "dive_${DIVE_VERSION}_linux_amd64.tar.gz" dive \
   && rm "dive_${DIVE_VERSION}_linux_amd64.tar.gz"
 
-RUN adduser --disabled-login --home /opt --shell /sbin/nologin --no-create-home  app_daemon
+RUN useradd -d /opt -s /sbin/nologin  --no-create-home app_daemon
 
-RUN pip3 install --no-cache-dir --upgrade docker
-RUN pip3 install --no-cache-dir --upgrade boto3
-RUN pip3 install --no-cache-dir --upgrade markdown
+COPY pip-requirements.txt /tmp/
 
-# Create a "python" command, because some old scripts may expect it
-RUN bash -c 'which python || ln -s "$(which python3)" "/usr/bin/python"'
-
-RUN echo 'set -o vi' | tee -a /root/.bashrc
+RUN pip3 install --no-cache-dir --upgrade -r /tmp/pip-requirements.txt
 
 COPY . /opt/imagecheck
 
