@@ -139,6 +139,7 @@ Image Label com.azure.dev.image.build.repository.uri
   [Arguments]   ${IMAGE}
   ${result} =   Run Process  docker  inspect  -f  {{ index .ContainerConfig.Labels "com.azure.dev.image.build.repository.uri" }}  ${IMAGE}
   ${stripped} =  Strip String  ${result.stdout}
+  ${stripped} =  Replace String Using Regexp  ${stripped}  ://[^@]+@  ://
   Log  Label com.azure.dev.image.build.repository.uri = ${stripped}  console=True
   ### ${whole_match} =  Should Match Regexp  ${stripped}  ^[a-zA-Z0-9/]+$  Label missing or unacceptable
   Run Keyword If  $stripped  Set Suite Metadata  Azure DevOps Repo  ${stripped}  append=True  top=True
