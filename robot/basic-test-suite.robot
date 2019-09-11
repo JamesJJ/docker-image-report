@@ -32,6 +32,11 @@ NODE
     [Tags]  CRITICAL  NodeJS
     NodeJS Version  ${IMAGE}
 
+PYTHON
+    [Tags]  Python
+    Python Version  ${IMAGE}
+    Python EOL Check  ${IMAGE}
+
 LINUX VERSION
     [Tags]  CRITICAL  Base OS
     Alpine Version  ${IMAGE}
@@ -76,6 +81,21 @@ Pull Image
   ${result} =   Run Process  docker  pull  ${IMAGE}
   Run Keyword If  ${result.rc}!=0  Log  ${result.stderr}  console=True
   Run Keyword If  ${result.rc}!=0  Fatal Error
+
+
+Python Version
+  [Tags]  Python
+  [Arguments]   ${IMAGE}
+  ${result} =   Run Process  docker  @{docker_run}  -i  --entrypoint  python  ${IMAGE}  -c  import sys;print(sys.version_info)
+  Log  ${result.stdout}  console=True
+  Pass Execution If  ${result.rc}!=${0}  Python not available.
+
+
+Python EOL Check
+  [Tags]  Python
+  [Arguments]   ${IMAGE}
+  ${result} =   Run Process  docker  @{docker_run}  -i  --entrypoint  python  ${IMAGE}  -c  import sys;print(sys.version_info.major)
+  Should Not Match Regexp  ${result.stdout}  ^[0-2]$  Python is too old
 
 
 Java Version
