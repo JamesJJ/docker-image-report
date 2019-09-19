@@ -57,6 +57,7 @@ Suite-Setup
   Log  Image = ${IMAGE}  console=True
   ECR Login  ${ECR_LOGIN_ADDRESS}  ${ECR_USERNAME}  ${ECR_PASSWORD}
   Pull Image  ${IMAGE}
+  Image Label ops_permit_dangerous  ${IMAGE}
 
 
 Suite-Teardown
@@ -133,6 +134,12 @@ Debian Version
   Should Not Match Regexp  ${stripped}  ^[0-8]\\.
   Should Not Match Regexp  ${stripped}  ^9\.[0-7]\\.
 
+Image Label ops_permit_dangerous
+  [Tags]  SECRET
+  [Arguments]   ${IMAGE}
+  ${result} =   Run Process  docker  inspect  -f  {{ .ContainerConfig.Labels.ops_permit_dangerous }}  ${IMAGE}
+  ${stripped} =  Strip String  ${result.stdout}
+  Run Keyword If  $stripped=="exigency"  Remove Tags  CRITICAL
 
 Image Label owner_team
   [Tags]  Image Build
