@@ -22,6 +22,14 @@ IMAGE ATTRIBUTES
     Image Label base_image  ${IMAGE}
     Image Label com.azure.dev.image.build.repository.uri  ${IMAGE}
 
+SECURITY
+    [Tags]  CRITICAL  Security
+    AWS Keys In Default Env  ${IMAGE}
+
+SECURITY-UNENFORCED
+    [Tags]  Security
+    Container User Not Root  ${IMAGE}
+
 JAVA
     [Tags]  CRITICAL  Java
     Java Version  ${IMAGE}
@@ -134,17 +142,37 @@ Debian Version
   Should Not Match Regexp  ${stripped}  ^[0-8]\\.
   Should Not Match Regexp  ${stripped}  ^9\.[0-7]\\.
 
+
+AWS Keys In Default Env
+  [Tags]  Security
+  [Arguments]   ${IMAGE}
+  [Documentation]  The default environment in the container must not include AWS credentials
+  ${result} =   Run Process  docker  inspect  -f  {{ .Config.Env }}  ${IMAGE}
+  ${groups} =  Get Regexp Matches  ${result.stdout}  ((?:A3T[A-Z0-9]|AKIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{8})[A-Z0-9]{8}  1
+  Length Should Be  ${groups}  0  msg=Found possible AWS credential: ${groups} (truncated)
+
+
+Container User Not Root
+  [Tags]  Security
+  [Arguments]   ${IMAGE}
+  ${result} =   Run Process  docker  inspect  -f  {{ .Config.User }}  ${IMAGE}
+  ${stripped} =  Strip String  ${result.stdout}
+  Log  Container User = ${stripped}  console=True
+  Run Keyword If  $stripped  Set Suite Metadata  Container User  ${stripped}  append=True  top=True
+  ${whole_match} =  Should Not Match Regexp  ${stripped}  ^(|0:.+|.+:0|root|root:.+|.+:root)$  Container Runs As Root
+
+
 Image Label ops_permit_dangerous
   [Tags]  SECRET
   [Arguments]   ${IMAGE}
-  ${result} =   Run Process  docker  inspect  -f  {{ .ContainerConfig.Labels.ops_permit_dangerous }}  ${IMAGE}
+  ${result} =   Run Process  docker  inspect  -f  {{ .Config.Labels.ops_permit_dangerous }}  ${IMAGE}
   ${stripped} =  Strip String  ${result.stdout}
   Run Keyword If  $stripped=="exigency"  Remove Tags  CRITICAL
 
 Image Label owner_team
   [Tags]  Image Build
   [Arguments]   ${IMAGE}
-  ${result} =   Run Process  docker  inspect  -f  {{ .ContainerConfig.Labels.owner_team }}  ${IMAGE}
+  ${result} =   Run Process  docker  inspect  -f  {{ .Config.Labels.owner_team }}  ${IMAGE}
   ${stripped} =  Strip String  ${result.stdout}
   Log  Label owner_team = ${stripped}  console=True
   ${whole_match} =  Should Match Regexp  ${stripped}  ^[a-zA-Z0-9/]+$  Label missing or unacceptable
@@ -154,7 +182,7 @@ Image Label owner_team
 Image Label base_image
   [Tags]  Image Build
   [Arguments]   ${IMAGE}
-  ${result} =   Run Process  docker  inspect  -f  {{ .ContainerConfig.Labels.base_image }}  ${IMAGE}
+  ${result} =   Run Process  docker  inspect  -f  {{ .Config.Labels.base_image }}  ${IMAGE}
   ${stripped} =  Strip String  ${result.stdout}
   Log  Label base_image = ${stripped}  console=True
   ### ${whole_match} =  Should Match Regexp  ${stripped}  ^[a-zA-Z0-9/]+$  Label missing or unacceptable
@@ -164,7 +192,7 @@ Image Label base_image
 Image Label com.azure.dev.image.build.repository.uri
   [Tags]  Image Build
   [Arguments]   ${IMAGE}
-  ${result} =   Run Process  docker  inspect  -f  {{ index .ContainerConfig.Labels "com.azure.dev.image.build.repository.uri" }}  ${IMAGE}
+  ${result} =   Run Process  docker  inspect  -f  {{ index .Config.Labels "com.azure.dev.image.build.repository.uri" }}  ${IMAGE}
   ${stripped} =  Strip String  ${result.stdout}
   ${stripped} =  Replace String Using Regexp  ${stripped}  ://[^@]+@  ://
   Log  Label com.azure.dev.image.build.repository.uri = ${stripped}  console=True
