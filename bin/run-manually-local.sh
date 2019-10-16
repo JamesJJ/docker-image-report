@@ -4,6 +4,8 @@ IMAGE="$1"
 
 [ -z "${IMAGE}" ] && exit 1
 
+export ECR_CHECK_OWNER_TEAM_REGEX='^[A-Z0-9/]+$'
+
 robot \
     --pythonpath "$(dirname "$0")/../lib" \
     --prerunmodifier disable.SuiteSetup \

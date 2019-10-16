@@ -175,7 +175,7 @@ Image Label owner_team
   ${result} =   Run Process  docker  inspect  -f  {{ .Config.Labels.owner_team }}  ${IMAGE}
   ${stripped} =  Strip String  ${result.stdout}
   Log  Label owner_team = ${stripped}  console=True
-  ${whole_match} =  Should Match Regexp  ${stripped}  ^[a-zA-Z0-9/]+$  Label missing or unacceptable
+  ${whole_match} =  Should Match Regexp  ${stripped}  %{ECR_CHECK_OWNER_TEAM_REGEX}  Label missing or unacceptable
   Run Keyword If  $whole_match is not None  Set Suite Metadata  Image Owner Team  ${whole_match}  append=True  top=True
 
 

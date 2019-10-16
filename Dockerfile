@@ -72,6 +72,5 @@ WORKDIR /opt/imagecheck
 
 CMD ["/usr/local/bin/tini","-g","python3","bin/check.py"]
 
-
-
+ENV ECR_CHECK_OWNER_TEAM_REGEX ^[A-Z0-9/]+$
 
