@@ -106,9 +106,9 @@ def event_routing(event_in):
 def handle_ecr_global(event_in):
     if event_in.get("eventName", "_") not in ("PutImage"):
         return True
-    if event_in.get("errorCode", "_") in ("ImageAlreadyExistsException"):
+    if event_in.get("errorCode", "_") in ("ImageAlreadyExistsException", "InvalidParameterException"):
         logger.info(
-            " = Image already exists ({!s})".format(event_in.get("errorMessage", ""))
+            " = Image problem, skipping ({!s})".format(event_in.get("errorMessage", ""))
         )
         return True
 
@@ -282,19 +282,13 @@ def handle_image(
 
     if should_delete_image and not dry_run:
         try:
-            logger.debug(" = ECR Delete: {}".format(image.id))
+            logger.debug(" = ECR Delete: {}/{}".format(repo, tag))
             del_tag = ecrc.batch_delete_image(
                 registryId=registry_id,
                 repositoryName=repo,
                 imageIds=[{"imageTag": tag}],
             )
             logger.debug(" = ECR DeleteTag: {}".format(pf(del_tag)))
-            del_id = ecrc.batch_delete_image(
-                registryId=registry_id,
-                repositoryName=repo,
-                imageIds=[{"imageDigest": image.id}],
-            )
-            logger.debug(" = ECR DeleteId: {}".format(pf(del_id)))
         except Exception as e:
             logger.error(" = ECR Delete Error: {}".format(e))
 
